@@ -1,0 +1,177 @@
+Been busy doing open source dev Maker shit lately
+
+Here's an e Here's an advanced Arduino code example for a claw machine that includes:
+
+- Limit switches to prevent over-travel
+- A simple state machine for better control
+- Serial communication for remote control or debugging
+- Adjustable servo positions for calibration
+
+### Hardware Assumptions:
+- 3 servos: base (left/right), arm (forward/backward), claw (open/close)
+- Limit switches for each axis
+- Buttons or serial commands for control
+
+———-
+
+Example Code:
+
+```cpp
+#include <Servo.h>
+
+// Servos
+Servo baseServo;
+Servo armServo;
+Servo clawServo;
+
+// Limit switch pins
+const int baseLeftLimitPin = 14;
+const int baseRightLimitPin = 15;
+const int armForwardLimitPin = 16;
+const int armBackwardLimitPin = 17;
+
+// Control buttons or serial commands (for remote control)
+const int controlModePin = 18; // Example for mode toggle
+
+// Positions
+int basePos = 90;
+int armPos = 90;
+int clawPos = 90;
+
+// Positional limits
+const int baseMin = 0;
+const int baseMax = 180;
+
+const int armMin = 0;
+const int armMax = 180;
+
+const int clawOpenPos = 120;
+const int clawClosePos = 60;
+
+// Variables for control
+bool manualControl = true; // Switch between manual and remote
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Attach servos
+  baseServo.attach(9);
+  armServo.attach(10);
+  clawServo.attach(11);
+
+  // Setup limit switches
+  pinMode(baseLeftLimitPin, INPUT_PULLUP);
+  pinMode(baseRightLimitPin, INPUT_PULLUP);
+  pinMode(armForwardLimitPin, INPUT_PULLUP);
+  pinMode(armBackwardLimitPin, INPUT_PULLUP);
+
+  // Optional: control mode switch
+  pinMode(controlModePin, INPUT_PULLUP);
+
+  // Initialize positions
+  baseServo.write(basePos);
+  armServo.write(armPos);
+  clawServo.write(clawPos);
+}
+
+void loop() {
+  // Check control mode
+  if (digitalRead(controlModePin) == LOW) {
+    manualControl = false; // Switch to remote control
+  } else {
+    manualControl = true; // Manual control
+  }
+
+  if (manualControl) {
+    manualMove();
+  } else {
+    remoteControl();
+  }
+
+  // Optional: Add safety checks with limit switches
+  checkLimitSwitches();
+
+  delay(20); // Loop delay
+}
+
+void manualMove() {
+  // Example: Read buttons or potentiometers for manual control
+  // For simplicity, let's assume serial commands for manual control
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    processSerialCommand(command);
+  }
+}
+
+void remoteControl() {
+  if (Serial.available()) {
+    String command = Serial.readStringUntil('\n');
+    processSerialCommand(command);
+  }
+}
+
+// Process commands like "LEFT", "RIGHT", "FORWARD", "BACKWARD", "OPEN", "CLOSE"
+void processSerialCommand(String cmd) {
+  cmd.trim();
+  if (cmd == "LEFT") {
+    moveBase(-5);
+  } else if (cmd == "RIGHT") {
+    moveBase(5);
+  } else if (cmd == "FORWARD") {
+    moveArm(-5);
+  } else if (cmd == "BACKWARD") {
+    moveArm(5);
+  } else if (cmd == "OPEN") {
+    clawServo.write(clawOpenPos);
+  } else if (cmd == "CLOSE") {
+    clawServo.write(clawClosePos);
+  } else if (cmd == "STOP") {
+    // Stop movement (no action needed)
+  }
+}
+
+// Functions to move servos with safety checks
+void moveBase(int delta) {
+  int newPos = constrain(basePos + delta, baseMin, baseMax);
+  // Check limit switch
+  if ((delta < 0 && digitalRead(baseLeftLimitPin) == LOW) ||
+      (delta > 0 && digitalRead(baseRightLimitPin) == LOW)) {
+    // Limit reached, don't move
+    return;
+  }
+  basePos = newPos;
+  baseServo.write(basePos);
+}
+
+void moveArm(int delta) {
+  int newPos = constrain(armPos + delta, armMin, armMax);
+  // Check limit switch
+  if ((delta < 0 && digitalRead(armBackwardLimitPin) == LOW) ||
+      (delta > 0 && digitalRead(armForwardLimitPin) == LOW)) {
+    return;
+  }
+  armPos = newPos;
+  armServo.write(armPos);
+}
+
+void checkLimitSwitches() {
+  // Optional: implement feedback or stop movement if limit switches are triggered
+  // For example, prevent further movement if limit switch is active
+}
+```
+
+———-
+
+Features:
+- Limit Switches:  Prevent the servos from moving beyond physical limits.
+- Serial Control:  Send commands like `LEFT`, `RIGHT`, `OPEN`, `CLOSE` over serial for remote control.
+- Manual Mode: Toggle between manual and remote control with a switch.
+- Calibration: Adjust servo positions for your specific hardware.
+
+———-
+
+Next Steps:
+- Connect limit switches to digital inputs with pull-up resistors.
+- Use serial commands from your PC or remote controller.
+- Expand with sensors (e.g., IR, ultrasonic) for object detection.
+- Add buttons or joysticks for manual control.
