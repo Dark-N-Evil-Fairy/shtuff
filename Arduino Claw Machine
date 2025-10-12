@@ -1,0 +1,111 @@
+Been busy doing open source dev Maker shit lately
+
+Here's an example of Arduino code for controlling a simple claw machine. 
+
+This example assumes you have the following components:
+
+- Four servo motors for moving the claw (left, right, forward, backward)
+- One servo for opening and closing the claw
+- Buttons or sensors to control movements
+- An Arduino board (e.g., Uno)
+
+This code allows basic control of the claw machine using push buttons.
+
+———-
+
+```cpp
+#include <Servo.h>
+
+// Define servos
+Servo baseServo;      // For left/right movement
+Servo verticalServo;  // For forward/backward movement
+Servo clawServo;      // For opening/closing the claw
+
+// Define button pins
+const int leftBtnPin = 2;
+const int rightBtnPin = 3;
+const int forwardBtnPin = 4;
+const int backwardBtnPin = 5;
+const int openClawBtnPin = 6;
+const int closeClawBtnPin = 7;
+
+// Servo positions
+int basePos = 90;      // Center position
+int verticalPos = 90;  // Center position
+int clawPos = 90;      // Claw open
+
+void setup() {
+  // Attach servos to pins
+  baseServo.attach(9);
+  verticalServo.attach(10);
+  clawServo.attach(11);
+
+  // Set button pins as input with internal pull-up resistors
+  pinMode(leftBtnPin, INPUT_PULLUP);
+  pinMode(rightBtnPin, INPUT_PULLUP);
+  pinMode(forwardBtnPin, INPUT_PULLUP);
+  pinMode(backwardBtnPin, INPUT_PULLUP);
+  pinMode(openClawBtnPin, INPUT_PULLUP);
+  pinMode(closeClawBtnPin, INPUT_PULLUP);
+
+  // Initialize servos to starting positions
+  baseServo.write(basePos);
+  verticalServo.write(verticalPos);
+  clawServo.write(clawPos);
+}
+
+void loop() {
+  // Read button states
+  bool leftPressed = digitalRead(leftBtnPin) == LOW;
+  bool rightPressed = digitalRead(rightBtnPin) == LOW;
+  bool forwardPressed = digitalRead(forwardBtnPin) == LOW;
+  bool backwardPressed = digitalRead(backwardBtnPin) == LOW;
+  bool openClawPressed = digitalRead(openClawBtnPin) == LOW;
+  bool closeClawPressed = digitalRead(closeClawBtnPin) == LOW;
+
+  // Control base (left/right)
+  if (leftPressed) {
+    basePos = constrain(basePos - 1, 0, 180);
+    baseServo.write(basePos);
+  }
+  if (rightPressed) {
+    basePos = constrain(basePos + 1, 0, 180);
+    baseServo.write(basePos);
+  }
+
+  // Control vertical movement (forward/backward)
+  if (forwardPressed) {
+    verticalPos = constrain(verticalPos - 1, 0, 180);
+    verticalServo.write(verticalPos);
+  }
+  if (backwardPressed) {
+    verticalPos = constrain(verticalPos + 1, 0, 180);
+    verticalServo.write(verticalPos);
+  }
+
+  // Control claw open/close
+  if (openClawPressed) {
+    clawPos = 120; // Adjust as needed for open
+    clawServo.write(clawPos);
+  }
+  if (closeClawPressed) {
+    clawPos = 60; // Adjust as needed for closed
+    clawServo.write(clawPos);
+  }
+
+  delay(10); // Small delay for smoother control
+}
+```
+———-
+
+How it works:
+- Use buttons connected to pins 2-7 to control the movement.
+- Pressing left/right moves the base servo.
+- Pressing forward/backward moves the vertical servo.
+- Pressing open/close opens or closes the claw.
+- Adjust servo positions and button logic as needed  for your specific hardware.
+
+Notes:
+- Make sure to connect the servos to appropriate PWM pins.
+- Adjust the servo angles for your specific claw mechanism.
+- For more advanced control, you can add sensors, limit switches, or remote control features.
