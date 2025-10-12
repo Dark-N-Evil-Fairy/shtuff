@@ -1,0 +1,186 @@
+The proper way to install Ubuntu studio for all your creative endeavors, whether it be digital arts or photography or videography or writing or music needs
+
+First you start with Ubuntu live server ISO 
+
+Then you create a beautiful Dis using either UUI or YUMI or bitetcher or any other ISO to live boot USB software
+
+Plug your USB that you just made into the device that you wish to install it in (unless you’re using VMware fusion or VMware workstation or virtual box in which case you do not need the USB you only need the ISO) 
+
+Then boot up your machine, whether it is a physical machine or a virtual machine and have a targeted boot that either reads that USB if it’s a physical device or reads that ISO if it’s a virtual machine first 
+
+Go through the installation process of the live boot 
+
+When prompted install  MaaS as well as NextCloud 
+
+Then finish the installation and restart your machine, Weather physical or virtual with a targeted boot targeting the boot drive 
+
+———- 
+
+Login to Ubuntu server typing your admin credentials or your login credentials if just a user
+
+When at the command line type the following 
+
+- Become admin I.e. super user must enter password to become super user
+
+& sudo su
+Input password
+
+- Update and upgrade Package List:
+
+$ Apt  update -y && apt upgrade -y
+
+- Install Ubuntu studio installer file
+
+$ apt install ubuntustudio-installer
+
+- Install Ubuntu studio optimization packages
+
+$ ubuntustudio-installer
+
+- Install genome software center GUI
+
+$ apt install gnome-software
+
+- Install cinnamon desktop GUI
+
+$ apt install cinnamon-desktop-environment
+
+- Install cinnamon desktop optimized for Ubuntu
+
+$ apt install ubuntucinnamon-desktop
+
+- Install audio packages
+
+$ apt install ubuntustudio-audio
+
+- Install graphics packages
+
+$ apt install ubuntustudio-graphics
+
+- Install video packages
+
+$ sudo apt install ubuntustudio-video
+
+- install low latency audio
+
+$ apt install linux-lowlatency
+
+
+- Install Synaptic: Use the apt installcommand to install Synaptic package manager GUI
+
+$ synaptic
+
+- Install MaaS (Metal as a Servise) stable VM using snap 
+
+$ snap install maas --channel=latest/stable
+
+- Install MaaS (Metal as a Service) repositories 
+
+$ apt-add-repository ppa:maas/stable
+
+Update Package List:
+
+$ Apt  update -y && apt upgrade -y
+
+Install MAAS (Metal as a Service): 
+MAAS is typically installed via snap packages
+
+$ apt install maas
+
+Using snap(Recommended)
+
+$ apt install maas-cli
+
+Using the MAAS PPA and apt
+
+$ maas apikey --username=$PROFILE > $API_KEY_FILE 
+
+Obtain the API Key: 
+You need an API key to authenticate with the MAAS API. If you have an administrator account, you can get its API key from the region controller
+
+$ maas login $PROFILE $MAAS_URL - < $API_KEY_FILE
+
+Log in to the MAAS CLI: 
+Once you have the API key, log in to the MAAS CLI:
+
+$ maas $PROFILE --help
+
+Interact with MAAS: 
+After logging in, you can use the maas command followed by your profile name and the desired subcommand to interact with MAAS. For example: View help.
+
+$ maas $PROFILE machines read
+
+commission a machine
+
+$ maas $PROFILE machine commission $SYSTEM_ID
+
+Replace $SYSTEM_ID with the ID of the machine you want to commission. Deploy a machine
+
+$ maas $PROFILE machine deploy $SYSTEM_ID
+
+ Example Workflow (Setting DNS and Importing Images):
+
+$ # Set the upstream DNS server
+maas $PROFILE maas set-config name=upstream_dns value="8.8.8.8"
+
+$ # Import images (e.g., Ubuntu 22.04 LTS)
+maas $PROFILE boot-resources import
+
+- Restart your machine
+
+$ sudo reboot
+
+- You should see a GUY however, if you do not in order to get to cinnamon desktop you simply input
+
+$ startx 
+
+- If that does not work, you may need to install init
+
+$ sudo apt install init
+Password
+
+- Then to start the GUI you simply input
+
+$ init
+
+Or
+
+$ startx 
+
+———-
+
+If at any time you need to drop to console for any reason or any errors or any bugs or any broken packages that need repaired or just anything that you need actual admin route access for you drop to console and to do it  on some machines, it is F1 and on some machines it is F2 and then you should be in console in the command line and all you see is terminal
+
+And then you should be up and going with all the features and functionality of Ubuntu server and all the features and functionality of Ubuntu studio with all appropriate packages in a sleek, familiar GUI and ready for all your creative needs 
+
+———-
+
+Troubleshooting
+
+This command will typically read your ~/.xinitrc file. To ensure Cinnamon starts, you should have the following line in your ~/.xinitrc file
+
+$ exec cinnamon-session
+
+If you need the software rendering version of Cinnamon (often used for troubleshooting or on systems without proper graphics drivers), you would use:
+
+$ exec cinnamon-session-cinnamon2d
+
+From another Desktop Environment or a Terminal within an X Session: 
+If you are already in another graphical environment and want to switch to Cinnamon, or if you want to restart Cinnamon, you can use the following commands in a terminal:
+* To restart Cinnamon without losing open applications (similar to Alt+F2, then 'r'):
+
+$ pkill -HUP -f "cinnamon --replace"
+
+Or
+
+$ killall -HUP cinnamon
+
+* To explicitly start a new Cinnamon session (if one isn't running or you want a fresh start):
+Code
+
+$  cinnamon --replace & disown
+
+Or
+
+$ nohup cinnamon --replace &
+
