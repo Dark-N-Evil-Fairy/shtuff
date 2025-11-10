@@ -1,0 +1,57 @@
+// Cross-platform main driver interface
+#include <stdio.h>
+#include <stdlib.h>
+
+typedef struct {
+    int (*initialize)(void *);
+    int (*send)(void *, const void *, size_t);
+    int (*receive)(void *, void *, size_t);
+    void (*shutdown)(void *);
+    void *context;
+} universal_wifi_driver_t;
+
+// Factory function to get driver based on platform
+universal_wifi_driver_t *get_driver() {
+    universal_wifi_driver_t *driver = malloc(sizeof(universal_wifi_driver_t));
+#ifdef _WIN32
+    driver->initialize = windows_initialize;
+    driver->send = windows_send;
+    driver->receive = windows_receive;
+    driver->shutdown = windows_shutdown;
+    driver->context = NULL; // Initialize context as needed
+#endif
+#ifdef __APPLE__
+    driver->initialize = mac_initialize;
+    driver->send = mac_send;
+    driver->receive = mac_receive;
+    driver->shutdown = mac_shutdown;
+    driver->context = NULL;
+#endif
+#ifdef __linux__
+    driver->initialize = linux_initialize;
+    driver->send = linux_send;
+    driver->receive = linux_receive;
+    driver->shutdown = linux_shutdown;
+    driver->context = NULL;
+#endif
+    return driver;
+}
+
+// Usage example
+int main() {
+    universal_wifi_driver_t *driver = get_driver();
+
+    if (driver->initialize(driver->context) != 0) {
+        printf("Failed to initialize Wi-Fi driver\n");
+        return -1;
+    }
+
+    // Example data transfer
+    char buffer[256];
+    driver->send(driver->context, "Test Data", 9);
+    driver->receive(driver->context, buffer, sizeof(buffer));
+
+    driver->shutdown(driver->context);
+    free(driver);
+    return 0;
+}
