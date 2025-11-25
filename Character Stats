@@ -1,0 +1,74 @@
+mport { Heart, Coins, Star, Shield } from 'lucide-react';
+import { Progress } from "@/components/ui/progress";
+
+const classIcons = {
+  warrior: '⚔️',
+  mage: '🔮',
+  rogue: '🗡️',
+  ranger: '🏹'
+};
+
+export default function CharacterStats({ session }) {
+  const xpForNextLevel = session.level * 100;
+  const xpProgress = (session.experience / xpForNextLevel) * 100;
+  const healthProgress = (session.health / session.max_health) * 100;
+
+  return (
+    <div className="bg-gradient-to-br from-slate-900/90 to-slate-800/90 backdrop-blur-sm border border-amber-900/30 rounded-2xl p-5">
+      {/* Character Header */}
+      <div className="flex items-center gap-3 mb-5 pb-4 border-b border-amber-900/20">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-2xl shadow-lg shadow-amber-900/30">
+          {classIcons[session.character_class]}
+        </div>
+        <div>
+          <h3 className="font-semibold text-amber-100 text-lg">{session.character_name}</h3>
+          <p className="text-amber-500/70 text-sm capitalize">{session.character_class} • Level {session.level}</p>
+        </div>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="space-y-4">
+        {/* Health */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2 text-sm">
+              <Heart className="w-4 h-4 text-red-400" />
+              <span className="text-slate-300">Health</span>
+            </div>
+            <span className="text-red-400 text-sm font-medium">{session.health}/{session.max_health}</span>
+          </div>
+          <Progress value={healthProgress} className="h-2 bg-slate-700/50" />
+        </div>
+
+        {/* Experience */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <div className="flex items-center gap-2 text-sm">
+              <Star className="w-4 h-4 text-purple-400" />
+              <span className="text-slate-300">Experience</span>
+            </div>
+            <span className="text-purple-400 text-sm font-medium">{session.experience}/{xpForNextLevel}</span>
+          </div>
+          <Progress value={xpProgress} className="h-2 bg-slate-700/50" />
+        </div>
+
+        {/* Gold */}
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-2 text-sm">
+            <Coins className="w-4 h-4 text-amber-400" />
+            <span className="text-slate-300">Gold</span>
+          </div>
+          <span className="text-amber-400 font-semibold">{session.gold}</span>
+        </div>
+
+        {/* Location */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <Shield className="w-4 h-4 text-emerald-400" />
+            <span className="text-slate-300">Location</span>
+          </div>
+          <span className="text-emerald-400 text-sm">{session.current_location}</span>
+        </div>
+      </div>
+    </div>
+  );
