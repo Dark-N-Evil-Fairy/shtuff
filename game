@@ -1,0 +1,333 @@
+import { useState, useEffect } from 'react';
+import { base44 } from '@/api/base44Client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import CharacterCreation from '@/components/rpg/CharacterCreation';
+import CharacterStats from '@/components/rpg/CharacterStats';
+import StoryDisplay from '@/components/rpg/StoryDisplay';
+import ActionInput from '@/components/rpg/ActionInput';
+import InventoryPanel from '@/components/rpg/InventoryPanel';
+import GameHeader from '@/components/rpg/GameHeader';
+
+const GAME_MASTER_PROMPT = `You are a masterful dungeon master running a text-based RPG. You create immersive, atmospheric narratives with rich descriptions. Keep responses concise (2-3 paragraphs max). Always:
+- Describe the scene vividly
+- Present 2-4 clear choices or opportunities
+- Track combat and stats changes
+- Be consistent with the fantasy world
+- Include occasional rewards (gold, items, XP)
+- Make the player feel like a hero
+
+Current character: {characterName} the {characterClass}
+Location: {location}
+Health: {health}/{maxHealth}
+Gold: {gold}
+Level: {level}
+
+Inventory: {inventory}
+
+When the player finds items, gains gold, takes damage, or gains XP, include a line at the end formatted as:
+[STATS: gold+X, health-Y, xp+Z, item+ItemName:type]
+
+Example: [STATS: gold+10, xp+25, item+Rusty Sword:weapon]`;
+
+const OPENING_PROMPT = `Begin an epic adventure for {characterName} the {characterClass}. They start in the Village of Thornwick, a small settlement at the edge of a dark forest. Set the scene with mystery and intrigue. Give them an immediate choice to make.`;
+
+export default function Game() {
+  const [currentSession, setCurrentSession] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Fetch existing sessions
+  const { data: sessions = [], isLoading: loadingSessions } = useQuery({
+    queryKey: ['gameSessions'],
+    queryFn: () => base44.entities.GameSession.list('-updated_date', 1)
+  });
+
+  // Load latest session on mount
+  useEffect(() => {
+    if (sessions.length > 0 && !currentSession) {
+      const session = sessions[0];
+      setCurrentSession(session);
+      if (session.story_history && session.story_history.length > 0) {
+        setMessages(session.story_history);
+      }
+    }
+  }, [sessions]);
+
+  // Create session mutation
+  const createSessionMutation = useMutation({
+    mutationFn: (data) => base44.entities.GameSession.create(data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gameSessions'] })
+  });
+
+  // Update session mutation
+  const updateSessionMutation = useMutation({
+    mutationFn: ({ id, data }) => base44.entities.GameSession.update(id, data),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['gameSessions'] })
+  });
+
+  // Parse stat changes from AI response
+  const parseStatChanges = (content) => {
+    const statsMatch = content.match(/\[STATS:([^\]]+)\]/);
+    if (!statsMatch) return null;
+
+    const changes = { gold: 0, health: 0, xp: 0, items: [] };
+    const parts = statsMatch[1].split(',').map(s => s.trim());
+
+    parts.forEach(part => {
+      if (part.startsWith('gold')) {
+        const val = parseInt(part.replace('gold', ''));
+        if (!isNaN(val)) changes.gold = val;
+      } else if (part.startsWith('health')) {
+        const val = parseInt(part.replace('health', ''));
+        if (!isNaN(val)) changes.health = val;
+      } else if (part.startsWith('xp')) {
+        const val = parseInt(part.replace('xp', ''));
+        if (!isNaN(val)) changes.xp = val;
+      } else if (part.startsWith('item+')) {
+        const itemStr = part.replace('item+', '');
+        const [name, type] = itemStr.split(':');
+        if (name) changes.items.push({ name, type: type || 'item', quantity: 1 });
+      }
+    });
+
+    return changes;
+  };
+
+  // Apply stat changes and update session
+  const applyStatChanges = (changes, cleanContent) => {
+    if (!currentSession || !changes) return currentSession;
+
+    const newGold = Math.max(0, (currentSession.gold || 0) + changes.gold);
+    const newHealth = Math.min(
+      currentSession.max_health || 100,
+      Math.max(0, (currentSession.health || 100) + changes.health)
+    );
+    const newXP = (currentSession.experience || 0) + changes.xp;
+    
+    // Check for level up
+    const xpForLevel = currentSession.level * 100;
+    let newLevel = currentSession.level || 1;
+    let remainingXP = newXP;
+    while (remainingXP >= newLevel * 100) {
+      remainingXP -= newLevel * 100;
+      newLevel++;
+    }
+
+    // Add items to inventory
+    const newInventory = [...(currentSession.inventory || [])];
+    changes.items.forEach(item => {
+      const existing = newInventory.find(i => i.name === item.name);
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + 1;
+      } else {
+        newInventory.push(item);
+      }
+    });
+
+    return {
+      ...currentSession,
+      gold: newGold,
+      health: newHealth,
+      experience: remainingXP,
+      level: newLevel,
+      max_health: newLevel > (currentSession.level || 1) ? (currentSession.max_health || 100) + 10 : (currentSession.max_health || 100),
+      inventory: newInventory
+    };
+  };
+
+  // Create new character
+  const handleCreateCharacter = async (name, characterClass) => {
+    setIsLoading(true);
+
+    const sessionData = {
+      character_name: name,
+      character_class: characterClass,
+      health: 100,
+      max_health: 100,
+      gold: 10,
+      experience: 0,
+      level: 1,
+      inventory: [{ name: 'Worn Dagger', type: 'weapon', quantity: 1 }],
+      current_location: 'Village of Thornwick',
+      story_history: [],
+      quests: []
+    };
+
+    const newSession = await createSessionMutation.mutateAsync(sessionData);
+    setCurrentSession(newSession);
+
+    // Generate opening narrative
+    const prompt = OPENING_PROMPT
+      .replace('{characterName}', name)
+      .replace('{characterClass}', characterClass);
+
+    const systemPrompt = GAME_MASTER_PROMPT
+      .replace('{characterName}', name)
+      .replace('{characterClass}', characterClass)
+      .replace('{location}', 'Village of Thornwick')
+      .replace('{health}', '100')
+      .replace('{maxHealth}', '100')
+      .replace('{gold}', '10')
+      .replace('{level}', '1')
+      .replace('{inventory}', 'Worn Dagger (weapon)');
+
+    const response = await base44.integrations.Core.InvokeLLM({
+      prompt: `${systemPrompt}\n\nPlayer request: ${prompt}`
+    });
+
+    const cleanContent = response.replace(/\[STATS:[^\]]+\]/g, '').trim();
+    const newMessages = [{ role: 'assistant', content: cleanContent }];
+    setMessages(newMessages);
+
+    await updateSessionMutation.mutateAsync({
+      id: newSession.id,
+      data: { story_history: newMessages }
+    });
+
+    setIsLoading(false);
+  };
+
+  // Handle player action
+  const handleAction = async (action) => {
+    if (!currentSession) return;
+    setIsLoading(true);
+
+    const userMessage = { role: 'user', content: action };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+
+    const inventoryStr = (currentSession.inventory || [])
+      .map(i => `${i.name} (${i.type})${i.quantity > 1 ? ` x${i.quantity}` : ''}`)
+      .join(', ') || 'Empty';
+
+    const systemPrompt = GAME_MASTER_PROMPT
+      .replace('{characterName}', currentSession.character_name)
+      .replace('{characterClass}', currentSession.character_class)
+      .replace('{location}', currentSession.current_location)
+      .replace('{health}', String(currentSession.health))
+      .replace('{maxHealth}', String(currentSession.max_health))
+      .replace('{gold}', String(currentSession.gold))
+      .replace('{level}', String(currentSession.level))
+      .replace('{inventory}', inventoryStr);
+
+    // Build conversation context (last 10 messages)
+    const contextMessages = newMessages.slice(-10)
+      .map(m => `${m.role === 'user' ? 'Player' : 'Game Master'}: ${m.content}`)
+      .join('\n\n');
+
+    const response = await base44.integrations.Core.InvokeLLM({
+      prompt: `${systemPrompt}\n\nRecent story:\n${contextMessages}\n\nPlayer's action: ${action}\n\nContinue the story:`
+    });
+
+    const changes = parseStatChanges(response);
+    const cleanContent = response.replace(/\[STATS:[^\]]+\]/g, '').trim();
+    
+    const assistantMessage = { role: 'assistant', content: cleanContent };
+    const finalMessages = [...newMessages, assistantMessage];
+    setMessages(finalMessages);
+
+    // Update session with new stats
+    const updatedSession = applyStatChanges(changes, cleanContent);
+    updatedSession.story_history = finalMessages;
+    setCurrentSession(updatedSession);
+
+    await updateSessionMutation.mutateAsync({
+      id: currentSession.id,
+      data: updatedSession
+    });
+
+    setIsLoading(false);
+  };
+
+  // Save game
+  const handleSave = async () => {
+    if (!currentSession) return;
+    await updateSessionMutation.mutateAsync({
+      id: currentSession.id,
+      data: { ...currentSession, story_history: messages }
+    });
+  };
+
+  // New game
+  const handleNewGame = async () => {
+    if (currentSession) {
+      await base44.entities.GameSession.delete(currentSession.id);
+    }
+    setCurrentSession(null);
+    setMessages([]);
+    queryClient.invalidateQueries({ queryKey: ['gameSessions'] });
+  };
+
+  if (loadingSessions) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Loading your adventure...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show character creation if no session
+  if (!currentSession) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+        <CharacterCreation 
+          onCreateCharacter={handleCreateCharacter} 
+          isLoading={isLoading} 
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col">
+      <div className="max-w-6xl mx-auto w-full flex-1 flex flex-col p-4">
+        <GameHeader
+          onOpenInventory={() => setInventoryOpen(true)}
+          onSave={handleSave}
+          onNewGame={handleNewGame}
+          isSaving={updateSessionMutation.isPending}
+        />
+
+        <div className="flex-1 flex gap-6 mt-4 min-h-0">
+          {/* Main Game Area */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex-1 flex flex-col bg-gradient-to-br from-slate-900/50 to-slate-800/30 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-5 min-h-0"
+          >
+            <StoryDisplay messages={messages} isLoading={isLoading} />
+            <div className="mt-4 pt-4 border-t border-slate-700/50">
+              <ActionInput 
+                onAction={handleAction} 
+                isLoading={isLoading}
+                disabled={currentSession.health <= 0}
+              />
+            </div>
+          </motion.div>
+
+          {/* Stats Sidebar - Hidden on mobile */}
+          <div className="hidden lg:block w-72 flex-shrink-0">
+            <CharacterStats session={currentSession} />
+          </div>
+        </div>
+
+        {/* Mobile Stats */}
+        <div className="lg:hidden mt-4">
+          <CharacterStats session={currentSession} />
+        </div>
+      </div>
+
+      <InventoryPanel
+        inventory={currentSession.inventory}
+        isOpen={inventoryOpen}
+        onClose={() => setInventoryOpen(false)}
+      />
+    </div>
+  );
+}
