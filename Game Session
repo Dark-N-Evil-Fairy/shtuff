@@ -1,0 +1,64 @@
+i
+  "name": "GameSession",
+  "type": "object",
+  "properties": {
+    "character_name": {
+      "type": "string",
+      "description": "Player's character name"
+    },
+    "character_class": {
+      "type": "string",
+      "enum": [
+        "warrior",
+        "mage",
+        "rogue",
+        "ranger"
+      ],
+      "description": "Character class"
+    },
+    "health": {
+      "type": "number",
+      "default": 100
+    },
+    "max_health": {
+      "type": "number",
+      "default": 100
+    },
+    "gold": {
+      "type": "number",
+      "default": 10
+    },
+    "experience": {
+      "type": "number",
+      "default": 0
+    },
+    "level": {
+      "type": "number",
+      "default": 1
+    },
+    "inventory": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "story_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string"
+          },
+ 
